@@ -39,7 +39,6 @@ pub fn open_interface_udp4(
     // Setup the socket
     let socket = RawSocket::open(libc::PF_INET, libc::SOCK_DGRAM, libc::IPPROTO_UDP)?;
     socket.reuse_addr()?;
-    socket.reuse_port()?;
     socket.bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, port).to_sockaddr(PrivateToken))?;
     socket.bind_to_device(interface)?;
     socket.ip_multicast_if(interface)?;
@@ -67,7 +66,6 @@ pub fn open_interface_udp6(
     // Setup the socket
     let socket = RawSocket::open(libc::PF_INET6, libc::SOCK_DGRAM, libc::IPPROTO_UDP)?;
     socket.reuse_addr()?;
-    socket.reuse_port()?;
     socket.ipv6_v6only(true)?;
     socket.bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, port, 0, 0).to_sockaddr(PrivateToken))?;
     socket.bind_to_device_v6(interface)?;

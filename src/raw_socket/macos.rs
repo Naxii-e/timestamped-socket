@@ -107,9 +107,4 @@ impl RawSocket {
     pub(crate) fn ipv6_v6only(&self, enabled: bool) -> std::io::Result<()> {
         self.setsockopt_int(libc::IPPROTO_IPV6, libc::IPV6_V6ONLY, enabled as libc::c_int)
     }
-
-    /// Allow several sockets (e.g. other PTP/Dante software) to bind the same port.
-    pub(crate) fn reuse_port(&self) -> std::io::Result<()> {
-        self.setsockopt_int(libc::SOL_SOCKET, libc::SO_REUSEPORT, 1)
-    }
 }
