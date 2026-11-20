@@ -69,7 +69,7 @@ impl RawSocket {
         cerr(unsafe { libc::ioctl(self.fd, libc::FIONBIO, &nonblocking) }).map(drop)
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub(crate) fn reuse_addr(&self) -> std::io::Result<()> {
         let options = 1u32;
 

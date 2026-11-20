@@ -13,6 +13,9 @@ pub use self::linux::*;
 #[cfg(target_os = "linux")]
 mod linux;
 
+#[cfg(target_os = "macos")]
+mod macos;
+
 pub(crate) mod sealed {
     // Seal to ensure NetworkAddress can't be implemented outside our crate
     pub trait SealedNA {}

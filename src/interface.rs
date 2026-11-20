@@ -259,6 +259,37 @@ impl InterfaceName {
         }
     }
 
+    /// Interface index, or a `NotFound` error naming the interface.
+    #[cfg(target_os = "macos")]
+    pub(crate) fn index_or_err(&self) -> std::io::Result<libc::c_uint> {
+        self.get_index().ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("interface {self} not found"),
+            )
+        })
+    }
+
+    /// First IPv4 address of this interface, or a `NotFound` error naming the interface.
+    #[cfg(target_os = "macos")]
+    pub(crate) fn ipv4_addr(&self) -> std::io::Result<std::net::Ipv4Addr> {
+        let not_found = || {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("interface {self} has no IPv4 address"),
+            )
+        };
+        interfaces()?
+            .get(self)
+            .ok_or_else(not_found)?
+            .ips()
+            .find_map(|ip| match ip {
+                IpAddr::V4(v4) => Some(v4),
+                IpAddr::V6(_) => None,
+            })
+            .ok_or_else(not_found)
+    }
+
     /// Do a lookup for the Physical Hardware Clock index for this interface.
     pub fn lookup_phc(&self) -> Option<u32> {
         lookup_phc(*self)

@@ -25,7 +25,7 @@ use self::freebsd::*;
 #[cfg(target_os = "linux")]
 pub use self::linux::*;
 #[cfg(target_os = "macos")]
-use self::macos::*;
+pub use self::macos::*;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Default)]
 pub struct Timestamp {
@@ -122,7 +122,9 @@ pub struct Socket<A, S> {
     _state: PhantomData<S>,
 }
 
+#[derive(Debug)]
 pub struct Open;
+#[derive(Debug)]
 pub struct Connected;
 
 impl<A: NetworkAddress, S> Socket<A, S> {
@@ -338,5 +340,63 @@ mod tests {
         let recv_result = b.recv(&mut buf).await.unwrap();
         assert_eq!(recv_result.bytes_read, 3);
         assert_eq!(&buf[0..3], &[4, 5, 6]);
+    }
+
+    #[cfg(target_os = "macos")]
+    mod macos {
+        use super::*;
+        use std::{
+            net::{SocketAddrV4, SocketAddrV6},
+            str::FromStr,
+        };
+
+        #[tokio::test]
+        async fn open_udp4_on_loopback_gets_recv_timestamp() {
+            let lo = InterfaceName::from_str("lo0").unwrap();
+            let rx = open_interface_udp4(lo, 0, InterfaceTimestampMode::SoftwareRecv, None).unwrap();
+            let port = rx.local_addr().unwrap().port();
+            let mut tx = connect_address(
+                SocketAddr::new(Ipv4Addr::LOCALHOST.into(), port),
+                GeneralTimestampMode::None,
+            )
+            .unwrap();
+            tx.send(&[1, 2, 3]).await.unwrap();
+            let mut buf = [0u8; 8];
+            let r = rx.recv(&mut buf).await.unwrap();
+            assert_eq!(r.bytes_read, 3);
+            assert!(
+                r.timestamp.is_some(),
+                "SO_TIMESTAMP must yield a software recv timestamp"
+            );
+        }
+
+        #[test]
+        fn open_udp4_on_missing_interface_names_it() {
+            let bogus = InterfaceName::from_str("nope9").unwrap();
+            let err = open_interface_udp4(bogus, 0, InterfaceTimestampMode::None, None).unwrap_err();
+            assert!(err.to_string().contains("nope9"), "{err}");
+        }
+
+        #[test]
+        fn software_all_is_unsupported_on_macos() {
+            let lo = InterfaceName::from_str("lo0").unwrap();
+            let err =
+                open_interface_udp4(lo, 0, InterfaceTimestampMode::SoftwareAll, None).unwrap_err();
+            assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
+        }
+
+        #[tokio::test]
+        async fn multicast_join_and_leave_on_loopback() {
+            let lo = InterfaceName::from_str("lo0").unwrap();
+            let v4 = open_interface_udp4(lo, 0, InterfaceTimestampMode::None, None).unwrap();
+            let group4 = SocketAddrV4::new(Ipv4Addr::new(224, 0, 1, 129), 0);
+            v4.join_multicast(group4, lo).unwrap();
+            v4.leave_multicast(group4, lo).unwrap();
+
+            let v6 = open_interface_udp6(lo, 0, InterfaceTimestampMode::None, None).unwrap();
+            let group6 = SocketAddrV6::new("ff0e::181".parse().unwrap(), 0, 0, 0);
+            v6.join_multicast(group6, lo).unwrap();
+            v6.leave_multicast(group6, lo).unwrap();
+        }
     }
 }
